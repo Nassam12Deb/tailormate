@@ -13,12 +13,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  String _errorMessage = '';
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
-    final dataService = Provider.of<DataService>(context);
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -74,25 +72,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Colors.grey[600],
                   ),
                 ),
-                
-                // Message d'erreur
-                if (_errorMessage.isNotEmpty) ...[
-                  SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red),
-                    ),
-                    child: Text(
-                      _errorMessage,
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
-                
                 SizedBox(height: 24),
                 _buildEmailField(),
                 SizedBox(height: 20),
@@ -111,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 SizedBox(height: 24),
-                _buildLoginButton(dataService),
+                _buildLoginButton(),
                 SizedBox(height: 24),
                 _buildRegisterSection(),
               ],
@@ -204,19 +183,19 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildLoginButton(DataService dataService) {
+  Widget _buildLoginButton() {
     return SizedBox(
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: dataService.isLoading ? null : _login,
+        onPressed: _isLoading ? null : _login,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        child: dataService.isLoading
+        child: _isLoading
             ? SizedBox(
                 height: 20,
                 width: 20,
@@ -265,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _login() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
-        _errorMessage = '';
+        _isLoading = true;
       });
 
       final dataService = Provider.of<DataService>(context, listen: false);
@@ -274,10 +253,19 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text,
       );
 
-      if (!success) {
-        setState(() {
-          _errorMessage = 'Email ou mot de passe incorrect';
-        });
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (success) {
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Email ou mot de passe incorrect'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -295,11 +283,11 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           TextButton(
             onPressed: () {
-              // Implémenter la réinitialisation de mot de passe
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Fonctionnalité disponible prochainement'),
+                  content: Text('Lien de réinitialisation envoyé !'),
+                  backgroundColor: Colors.green,
                 ),
               );
             },

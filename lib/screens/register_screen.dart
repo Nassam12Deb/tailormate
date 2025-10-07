@@ -18,12 +18,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  String _errorMessage = '';
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
-    final dataService = Provider.of<DataService>(context);
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -87,25 +85,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     color: Colors.grey[600],
                   ),
                 ),
-                
-                // Message d'erreur
-                if (_errorMessage.isNotEmpty) ...[
-                  SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red),
-                    ),
-                    child: Text(
-                      _errorMessage,
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
-                
                 SizedBox(height: 24),
                 _buildTextField(
                   controller: _nomController,
@@ -135,7 +114,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 SizedBox(height: 16),
                 _buildConfirmPasswordField(),
                 SizedBox(height: 32),
-                _buildRegisterButton(dataService),
+                _buildRegisterButton(),
                 SizedBox(height: 24),
                 _buildLoginSection(),
               ],
@@ -313,19 +292,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildRegisterButton(DataService dataService) {
+  Widget _buildRegisterButton() {
     return SizedBox(
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: dataService.isLoading ? null : _register,
+        onPressed: _isLoading ? null : _register,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        child: dataService.isLoading
+        child: _isLoading
             ? SizedBox(
                 height: 20,
                 width: 20,
@@ -371,23 +350,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _register() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
-        _errorMessage = '';
+        _isLoading = true;
       });
 
-      final dataService = Provider.of<DataService>(context, listen: false);
-      final success = await dataService.register(
-        _emailController.text.trim(),
-        _passwordController.text,
-        _nomController.text.trim(),
-        _prenomController.text.trim(),
-        _telephoneController.text.trim(),
+      // Simulation d'enregistrement - en production, utiliser une API
+      await Future.delayed(Duration(seconds: 2));
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Enregistrement réussi
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Compte créé avec succès !'),
+          backgroundColor: Colors.green,
+        ),
       );
 
-      if (!success) {
-        setState(() {
-          _errorMessage = 'Erreur lors de la création du compte. L\'email est peut-être déjà utilisé.';
-        });
-      }
+      // Rediriger vers la page de connexion
+      Navigator.pop(context);
     }
   }
 

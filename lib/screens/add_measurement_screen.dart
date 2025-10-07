@@ -1,9 +1,9 @@
-import 'dart:io'; // Doit être présent
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/data_service.dart';
 import '../services/image_service.dart';
-import '../services/permission_service.dart'; // Doit être présent
+import '../services/permission_service.dart';
 import '../models/client.dart';
 import '../models/measurement.dart';
 import '../models/garment_type.dart';
@@ -298,7 +298,7 @@ class _AddMeasurementScreenState extends State<AddMeasurementScreen> {
         decoration: BoxDecoration(
           color: Colors.grey[100],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[400]!, style: BorderStyle.solid),
+          border: Border.all(color: Colors.grey[400]!), // CORRECTION: suppression de BorderStyle.dashed
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

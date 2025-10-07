@@ -1,296 +1,160 @@
-import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'firebase_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/client.dart';
 import '../models/measurement.dart';
 import '../models/garment_type.dart';
 import '../models/custom_measurement.dart';
+import 'image_service.dart'; // IMPORT AJOUTÉ
 
 class DataService with ChangeNotifier {
   List<Client> _clients = [];
   List<Measurement> _measurements = [];
   List<GarmentType> _garmentTypes = [];
   List<CustomMeasurement> _customMeasurements = [];
-  bool _isLoading = false;
+  bool _isLoggedIn = false;
 
   List<Client> get clients => _clients;
   List<Measurement> get measurements => _measurements;
   List<GarmentType> get garmentTypes => _garmentTypes;
   List<CustomMeasurement> get customMeasurements => _customMeasurements;
-  bool get isLoading => _isLoading;
-  bool get isLoggedIn => FirebaseService.isLoggedIn;
+  bool get isLoggedIn => _isLoggedIn;
 
   DataService() {
-    if (isLoggedIn) {
-      _loadData();
-    }
+    _loadData();
+    _initializeDefaultData();
   }
 
   Future<void> _loadData() async {
-    if (!isLoggedIn) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      await Future.wait([
-        _loadClients(),
-        _loadMeasurements(),
-        _loadGarmentTypes(),
-        _loadCustomMeasurements(),
-      ]);
-    } catch (e) {
-      print('Erreur lors du chargement des données: $e');
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _loadClients() async {
-    final snapshot = await FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('clients')
-        .orderBy('dateCreation', descending: true)
-        .get();
-
-    _clients = snapshot.docs.map((doc) {
-      final data = doc.data();
-      return Client(
-        id: doc.id,
-        nom: data['nom'],
-        prenom: data['prenom'],
-        adresse: data['adresse'],
-        telephone: data['telephone'],
-        imagePath: data['imagePath'],
-        dateCreation: (data['dateCreation'] as Timestamp).toDate(),
-      );
-    }).toList();
-
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Charger les clients
+    final clientsJson = prefs.getStringList('clients') ?? [];
+    _clients = clientsJson.map((json) => Client.fromJson(jsonDecode(json))).toList();
+    
+    // Charger les mesures
+    final measurementsJson = prefs.getStringList('measurements') ?? [];
+    _measurements = measurementsJson.map((json) => Measurement.fromJson(jsonDecode(json))).toList();
+    
+    // Charger les types de vêtements
+    final garmentTypesJson = prefs.getStringList('garmentTypes') ?? [];
+    _garmentTypes = garmentTypesJson.map((json) => GarmentType.fromJson(jsonDecode(json))).toList();
+    
+    // Charger les mesures personnalisées
+    final customMeasurementsJson = prefs.getStringList('customMeasurements') ?? [];
+    _customMeasurements = customMeasurementsJson.map((json) => CustomMeasurement.fromJson(jsonDecode(json))).toList();
+    
+    // État de connexion
+    _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    
     notifyListeners();
   }
 
-  Future<void> _loadMeasurements() async {
-    final snapshot = await FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('measurements')
-        .orderBy('dateCreation', descending: true)
-        .get();
-
-    _measurements = snapshot.docs.map((doc) {
-      final data = doc.data();
-      return Measurement(
-        id: doc.id,
-        clientId: data['clientId'],
-        type: data['type'],
-        valeurs: Map<String, double>.from(data['valeurs']),
-        dateCreation: (data['dateCreation'] as Timestamp).toDate(),
-        fabricImagePaths: List<String>.from(data['fabricImagePaths'] ?? []),
-      );
-    }).toList();
-
-    notifyListeners();
-  }
-
-  Future<void> _loadGarmentTypes() async {
-    final snapshot = await FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('garmentTypes')
-        .orderBy('dateCreated', descending: true)
-        .get();
-
-    _garmentTypes = snapshot.docs.map((doc) {
-      final data = doc.data();
-      return GarmentType(
-        id: doc.id,
-        name: data['name'],
-        measurementFields: List<String>.from(data['measurementFields']),
-        dateCreated: (data['dateCreated'] as Timestamp).toDate(),
-      );
-    }).toList();
-
+  void _initializeDefaultData() {
     if (_garmentTypes.isEmpty) {
-      await _initializeDefaultGarmentTypes();
+      _garmentTypes.addAll([
+        GarmentType(
+          id: '1',
+          name: 'Chemise',
+          measurementFields: ['Cou', 'Tour De Poitrine', 'Manches', 'Tour De Taille', 'Longueur'],
+          dateCreated: DateTime.now(),
+        ),
+        GarmentType(
+          id: '2',
+          name: 'Pantalon',
+          measurementFields: ['Ceinture', 'Longueur', 'Hanche', 'Cuisse'],
+          dateCreated: DateTime.now(),
+        ),
+        GarmentType(
+          id: '3',
+          name: 'Veste',
+          measurementFields: ['Tour De Poitrine', 'Longueur', 'Épaules', 'Manches'],
+          dateCreated: DateTime.now(),
+        ),
+      ]);
     }
 
-    notifyListeners();
-  }
-
-  Future<void> _loadCustomMeasurements() async {
-    final snapshot = await FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('customMeasurements')
-        .orderBy('dateCreated', descending: true)
-        .get();
-
-    _customMeasurements = snapshot.docs.map((doc) {
-      final data = doc.data();
-      return CustomMeasurement(
-        id: doc.id,
-        name: data['name'],
-        unit: data['unit'],
-        dateCreated: (data['dateCreated'] as Timestamp).toDate(),
-      );
-    }).toList();
-
-    notifyListeners();
-  }
-
-  Future<void> _initializeDefaultGarmentTypes() async {
-    final defaultTypes = [
-      {
-        'name': 'Chemise',
-        'measurementFields': ['Cou', 'Tour De Poitrine', 'Manches', 'Tour De Taille', 'Longueur'],
-        'dateCreated': Timestamp.now(),
-      },
-      {
-        'name': 'Pantalon',
-        'measurementFields': ['Ceinture', 'Longueur', 'Hanche', 'Cuisse'],
-        'dateCreated': Timestamp.now(),
-      },
-      {
-        'name': 'Veste',
-        'measurementFields': ['Tour De Poitrine', 'Longueur', 'Épaules', 'Manches'],
-        'dateCreated': Timestamp.now(),
-      },
-    ];
-
-    final batch = FirebaseService.firestore.batch();
-    final userRef = FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('garmentTypes');
-
-    for (final typeData in defaultTypes) {
-      final docRef = userRef.doc();
-      batch.set(docRef, typeData);
+    if (_customMeasurements.isEmpty) {
+      _customMeasurements.addAll([
+        CustomMeasurement(
+          id: '1',
+          name: 'Cou',
+          unit: 'cm',
+          dateCreated: DateTime.now(),
+        ),
+        CustomMeasurement(
+          id: '2',
+          name: 'Tour De Poitrine',
+          unit: 'cm',
+          dateCreated: DateTime.now(),
+        ),
+        CustomMeasurement(
+          id: '3',
+          name: 'Manches',
+          unit: 'cm',
+          dateCreated: DateTime.now(),
+        ),
+      ]);
     }
+    _saveData();
+  }
 
-    await batch.commit();
-    await _loadGarmentTypes();
+  Future<void> _saveData() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Sauvegarder les clients
+    final clientsJson = _clients.map((client) => jsonEncode(client.toJson())).toList();
+    await prefs.setStringList('clients', clientsJson);
+    
+    // Sauvegarder les mesures
+    final measurementsJson = _measurements.map((measurement) => jsonEncode(measurement.toJson())).toList();
+    await prefs.setStringList('measurements', measurementsJson);
+    
+    // Sauvegarder les types de vêtements
+    final garmentTypesJson = _garmentTypes.map((type) => jsonEncode(type.toJson())).toList();
+    await prefs.setStringList('garmentTypes', garmentTypesJson);
+    
+    // Sauvegarder les mesures personnalisées
+    final customMeasurementsJson = _customMeasurements.map((measure) => jsonEncode(measure.toJson())).toList();
+    await prefs.setStringList('customMeasurements', customMeasurementsJson);
   }
 
   // Gestion des clients
-  Future<void> addClient(Client client) async {
-    final docRef = FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('clients')
-        .doc();
-
-    await docRef.set({
-      'nom': client.nom,
-      'prenom': client.prenom,
-      'adresse': client.adresse,
-      'telephone': client.telephone,
-      'imagePath': client.imagePath,
-      'dateCreation': Timestamp.fromDate(client.dateCreation),
-    });
-
-    await _loadClients();
+  void addClient(Client client) {
+    _clients.add(client);
+    _saveData();
+    notifyListeners();
   }
 
-  Future<void> updateClient(Client updatedClient) async {
-    await FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('clients')
-        .doc(updatedClient.id)
-        .update({
-      'nom': updatedClient.nom,
-      'prenom': updatedClient.prenom,
-      'adresse': updatedClient.adresse,
-      'telephone': updatedClient.telephone,
-      'imagePath': updatedClient.imagePath,
-    });
-
-    await _loadClients();
-  }
-
-  Future<void> deleteClient(String clientId) async {
-    // Supprimer les mesures associées
-    final measurementsSnapshot = await FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('measurements')
-        .where('clientId', isEqualTo: clientId)
-        .get();
-
-    final batch = FirebaseService.firestore.batch();
-    
-    // Supprimer les images des mesures
-    for (final doc in measurementsSnapshot.docs) {
-      final measurement = Measurement.fromJson(doc.data());
-      if (measurement.fabricImagePaths.isNotEmpty) {
-        for (final imagePath in measurement.fabricImagePaths) {
-          try {
-            await FirebaseService.storage.refFromURL(imagePath).delete();
-          } catch (e) {
-            print('Erreur suppression image: $e');
-          }
-        }
-      }
-      batch.delete(doc.reference);
+  void updateClient(Client updatedClient) {
+    final index = _clients.indexWhere((client) => client.id == updatedClient.id);
+    if (index != -1) {
+      _clients[index] = updatedClient;
+      _saveData();
+      notifyListeners();
     }
+  }
 
-    // Supprimer le client
-    batch.delete(
-      FirebaseService.firestore
-          .collection('users')
-          .doc(FirebaseService.currentUserId)
-          .collection('clients')
-          .doc(clientId),
-    );
-
-    await batch.commit();
-    await _loadClients();
-    await _loadMeasurements();
+  void deleteClient(String clientId) {
+    // Supprimer les images des mesures avant de supprimer le client
+    final clientMeasurements = getMeasurementsByClient(clientId);
+    for (final measurement in clientMeasurements) {
+      if (measurement.fabricImagePaths.isNotEmpty) {
+        ImageService.deleteImages(measurement.fabricImagePaths);
+      }
+    }
+    
+    _clients.removeWhere((client) => client.id == clientId);
+    _measurements.removeWhere((measurement) => measurement.clientId == clientId);
+    _saveData();
+    notifyListeners();
   }
 
   // Gestion des mesures
-  Future<void> addMeasurement(Measurement measurement) async {
-    final docRef = FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('measurements')
-        .doc();
-
-    // Upload des images vers Firebase Storage si nécessaire
-    final uploadedImagePaths = <String>[];
-    for (final localPath in measurement.fabricImagePaths) {
-      try {
-        final file = File(localPath);
-        final fileName = 'fabric_${DateTime.now().millisecondsSinceEpoch}_${uploadedImagePaths.length}.jpg';
-        final ref = FirebaseService.storage
-            .ref()
-            .child('users/${FirebaseService.currentUserId}/fabrics/$fileName');
-        
-        await ref.putFile(file);
-        final downloadUrl = await ref.getDownloadURL();
-        uploadedImagePaths.add(downloadUrl);
-        
-        // Supprimer le fichier local
-        await file.delete();
-      } catch (e) {
-        print('Erreur upload image: $e');
-        uploadedImagePaths.add(localPath);
-      }
-    }
-
-    await docRef.set({
-      'clientId': measurement.clientId,
-      'type': measurement.type,
-      'valeurs': measurement.valeurs,
-      'fabricImagePaths': uploadedImagePaths,
-      'dateCreation': Timestamp.fromDate(measurement.dateCreation),
-    });
-
-    await _loadMeasurements();
+  void addMeasurement(Measurement measurement) {
+    _measurements.add(measurement);
+    _saveData();
+    notifyListeners();
   }
 
   List<Measurement> getMeasurementsByClient(String clientId) {
@@ -306,167 +170,65 @@ class DataService with ChangeNotifier {
   }
 
   // Gestion des types de vêtements
-  Future<void> addGarmentType(GarmentType type) async {
-    final docRef = FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('garmentTypes')
-        .doc();
-
-    await docRef.set({
-      'name': type.name,
-      'measurementFields': type.measurementFields,
-      'dateCreated': Timestamp.fromDate(type.dateCreated),
-    });
-
-    await _loadGarmentTypes();
+  void addGarmentType(GarmentType type) {
+    _garmentTypes.add(type);
+    _saveData();
+    notifyListeners();
   }
 
-  Future<void> updateGarmentType(GarmentType updatedType) async {
-    await FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('garmentTypes')
-        .doc(updatedType.id)
-        .update({
-      'name': updatedType.name,
-      'measurementFields': updatedType.measurementFields,
-    });
-
-    await _loadGarmentTypes();
+  void updateGarmentType(GarmentType updatedType) {
+    final index = _garmentTypes.indexWhere((type) => type.id == updatedType.id);
+    if (index != -1) {
+      _garmentTypes[index] = updatedType;
+      _saveData();
+      notifyListeners();
+    }
   }
 
-  Future<void> deleteGarmentType(String typeId) async {
-    await FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('garmentTypes')
-        .doc(typeId)
-        .delete();
-
-    await _loadGarmentTypes();
+  void deleteGarmentType(String typeId) {
+    _garmentTypes.removeWhere((type) => type.id == typeId);
+    _saveData();
+    notifyListeners();
   }
 
   // Gestion des mesures personnalisées
-  Future<void> addCustomMeasurement(CustomMeasurement measurement) async {
-    final docRef = FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('customMeasurements')
-        .doc();
-
-    await docRef.set({
-      'name': measurement.name,
-      'unit': measurement.unit,
-      'dateCreated': Timestamp.fromDate(measurement.dateCreated),
-    });
-
-    await _loadCustomMeasurements();
+  void addCustomMeasurement(CustomMeasurement measurement) {
+    _customMeasurements.add(measurement);
+    _saveData();
+    notifyListeners();
   }
 
-  Future<void> updateCustomMeasurement(CustomMeasurement updatedMeasurement) async {
-    await FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('customMeasurements')
-        .doc(updatedMeasurement.id)
-        .update({
-      'name': updatedMeasurement.name,
-      'unit': updatedMeasurement.unit,
-    });
-
-    await _loadCustomMeasurements();
+  void updateCustomMeasurement(CustomMeasurement updatedMeasurement) {
+    final index = _customMeasurements.indexWhere((measure) => measure.id == updatedMeasurement.id);
+    if (index != -1) {
+      _customMeasurements[index] = updatedMeasurement;
+      _saveData();
+      notifyListeners();
+    }
   }
 
-  Future<void> deleteCustomMeasurement(String measurementId) async {
-    await FirebaseService.firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId)
-        .collection('customMeasurements')
-        .doc(measurementId)
-        .delete();
-
-    await _loadCustomMeasurements();
+  void deleteCustomMeasurement(String measurementId) {
+    _customMeasurements.removeWhere((measure) => measure.id == measurementId);
+    _saveData();
+    notifyListeners();
   }
 
   // Authentification
   Future<bool> login(String email, String password) async {
-    try {
-      setState(() => _isLoading = true);
-      
-      await FirebaseService.auth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
-
-      if (FirebaseService.isLoggedIn) {
-        await _loadData();
-        return true;
-      }
-      return false;
-    } on FirebaseAuthException catch (e) {
-      print('Erreur connexion: ${e.code} - ${e.message}');
-      return false;
-    } catch (e) {
-      print('Erreur inattendue: $e');
-      return false;
-    } finally {
-      setState(() => _isLoading = false);
+    if (email.isNotEmpty && password.isNotEmpty) {
+      _isLoggedIn = true;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', true);
+      notifyListeners();
+      return true;
     }
-  }
-
-  Future<bool> register(String email, String password, String nom, String prenom, String telephone) async {
-    try {
-      setState(() => _isLoading = true);
-      
-      final userCredential = await FirebaseService.auth.createUserWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
-
-      if (userCredential.user != null) {
-        // Sauvegarder les informations supplémentaires dans Firestore
-        await FirebaseService.firestore
-            .collection('users')
-            .doc(userCredential.user!.uid)
-            .set({
-          'email': email.trim(),
-          'nom': nom,
-          'prenom': prenom,
-          'telephone': telephone,
-          'dateInscription': Timestamp.now(),
-        });
-
-        await _loadData();
-        return true;
-      }
-      return false;
-    } on FirebaseAuthException catch (e) {
-      print('Erreur inscription: ${e.code} - ${e.message}');
-      return false;
-    } catch (e) {
-      print('Erreur inattendue: $e');
-      return false;
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    return false;
   }
 
   Future<void> logout() async {
-    await FirebaseService.signOut();
-    _clearLocalData();
-    notifyListeners();
-  }
-
-  void _clearLocalData() {
-    _clients.clear();
-    _measurements.clear();
-    _garmentTypes.clear();
-    _customMeasurements.clear();
-  }
-
-  void setState(VoidCallback callback) {
-    callback();
+    _isLoggedIn = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', false);
     notifyListeners();
   }
 }

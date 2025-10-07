@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'services/firebase_service.dart';
+import 'models/client.dart';
 import 'services/data_service.dart';
 import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/dashboard_screen.dart';
+import 'screens/client_list_screen.dart';
+import 'screens/add_client_screen.dart';
+import 'screens/client_measures_screen.dart';
+import 'screens/add_measurement_screen.dart';
+import 'screens/profile_screen.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await FirebaseService.initialize();
+void main() {
   runApp(MyApp());
 }
 
@@ -24,7 +29,7 @@ class MyApp extends StatelessWidget {
           visualDensity: VisualDensity.adaptivePlatformDensity,
           fontFamily: 'Roboto',
         ),
-        home: AuthWrapper(),
+        home: LoginScreen(),
         routes: {
           '/dashboard': (context) => DashboardScreen(),
           '/clients': (context) => ClientListScreen(),
@@ -48,32 +53,6 @@ class MyApp extends StatelessWidget {
         },
         debugShowCheckedModeBanner: false,
       ),
-    );
-  }
-}
-
-class AuthWrapper extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseService.auth.authStateChanges(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-
-        if (snapshot.hasData && snapshot.data != null) {
-          // Utilisateur connecté
-          return DashboardScreen();
-        } else {
-          // Utilisateur non connecté
-          return LoginScreen();
-        }
-      },
     );
   }
 }
