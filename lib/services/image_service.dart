@@ -1,7 +1,7 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart';
 import 'permission_service.dart';
 
 class ImageService {
@@ -26,7 +26,7 @@ class ImageService {
       }
       return null;
     } catch (e) {
-      print('Erreur caméra: $e');
+      debugPrint('Erreur caméra: $e');
       return null;
     }
   }
@@ -50,7 +50,7 @@ class ImageService {
       }
       return null;
     } catch (e) {
-      print('Erreur galerie: $e');
+      debugPrint('Erreur galerie: $e');
       return null;
     }
   }
@@ -67,7 +67,7 @@ class ImageService {
       
       return newPath;
     } catch (e) {
-      print('Erreur sauvegarde image: $e');
+      debugPrint('Erreur sauvegarde image: $e');
       return imagePath;
     }
   }
@@ -82,7 +82,7 @@ class ImageService {
       }
       return true;
     } catch (e) {
-      print('Erreur suppression image: $e');
+      debugPrint('Erreur suppression image: $e');
       return false;
     }
   }
@@ -94,7 +94,7 @@ class ImageService {
       }
       return true;
     } catch (e) {
-      print('Erreur suppression images: $e');
+      debugPrint('Erreur suppression images: $e');
       return false;
     }
   }
