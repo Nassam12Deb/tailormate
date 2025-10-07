@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/data_service.dart';
 import 'register_screen.dart';
+import 'welcome_screen.dart';
 
 class LoginScreen extends StatefulWidget {
+  const LoginScreen({Key? key}) : super(key: key);
+
   @override
   _LoginScreenState createState() => _LoginScreenState();
 }
@@ -27,7 +30,15 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: 40),
+                SizedBox(height: 20),
+                // Bouton retour
+                IconButton(
+                  icon: Icon(Icons.arrow_back, color: Colors.blue),
+                  onPressed: () {
+                    Navigator.pushReplacementNamed(context, '/welcome');
+                  },
+                ),
+                SizedBox(height: 20),
                 Center(
                   child: Icon(
                     Icons.straighten,
