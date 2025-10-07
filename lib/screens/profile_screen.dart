@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/data_service.dart';
+import 'edit_personal_data_screen.dart';
+import 'update_email_screen.dart';
+import 'change_password_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   @override
@@ -76,21 +79,36 @@ class ProfileScreen extends StatelessWidget {
                   title: 'Données personnelles',
                   actionText: 'Mettre à jour →',
                   onTap: () {
-                    _showUpdatePersonalDataDialog(context, dataService);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EditPersonalDataScreen(),
+                      ),
+                    );
                   },
                 ),
                 _ProfileSection(
                   title: 'Adresse Email',
                   actionText: 'Modifier Adresse email →',
                   onTap: () {
-                    _showUpdateEmailDialog(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => UpdateEmailScreen(),
+                      ),
+                    );
                   },
                 ),
                 _ProfileSection(
                   title: 'Sécurité',
                   actionText: 'Changer votre mot de passe →',
                   onTap: () {
-                    _showChangePasswordDialog(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChangePasswordScreen(),
+                      ),
+                    );
                   },
                 ),
                 _ProfileSection(
@@ -128,54 +146,6 @@ class ProfileScreen extends StatelessWidget {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  void _showUpdatePersonalDataDialog(BuildContext context, DataService dataService) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Mettre à jour les données personnelles'),
-        content: Text('Fonctionnalité disponible prochainement.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showUpdateEmailDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Modifier l\'adresse email'),
-        content: Text('Fonctionnalité disponible prochainement.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showChangePasswordDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Changer le mot de passe'),
-        content: Text('Fonctionnalité disponible prochainement.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showAboutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -193,6 +163,8 @@ class ProfileScreen extends StatelessWidget {
             Text('Application de gestion de mesures pour tailleurs.'),
             SizedBox(height: 8),
             Text('Développé avec Flutter.'),
+            SizedBox(height: 8),
+            Text('© 2024 Tous droits réservés.'),
           ],
         ),
         actions: [

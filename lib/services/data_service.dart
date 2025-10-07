@@ -236,6 +236,22 @@ class DataService with ChangeNotifier {
     notifyListeners();
   }
 
+  // Mettre à jour les informations utilisateur
+  void updateUser(User updatedUser) {
+    final index = _users.indexWhere((user) => user.id == updatedUser.id);
+    if (index != -1) {
+      _users[index] = updatedUser;
+      
+      // Si c'est l'utilisateur courant, mettre à jour aussi
+      if (_currentUser?.id == updatedUser.id) {
+        _currentUser = updatedUser;
+      }
+      
+      _saveData();
+      notifyListeners();
+    }
+  }
+
   // Gestion des clients
   void addClient(Client client) {
     final userSpecificClient = Client(

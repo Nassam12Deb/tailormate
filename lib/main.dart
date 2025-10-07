@@ -12,6 +12,9 @@ import 'screens/add_client_screen.dart';
 import 'screens/client_measures_screen.dart';
 import 'screens/add_measurement_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/edit_personal_data_screen.dart';
+import 'screens/update_email_screen.dart';
+import 'screens/change_password_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
