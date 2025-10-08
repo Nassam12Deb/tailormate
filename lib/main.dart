@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'models/client.dart';
 import 'services/data_service.dart';
 import 'screens/welcome_screen.dart';
@@ -15,9 +16,16 @@ import 'screens/profile_screen.dart';
 import 'screens/edit_personal_data_screen.dart';
 import 'screens/update_email_screen.dart';
 import 'screens/change_password_screen.dart';
+import 'screens/verify_email_screen.dart';
+import 'services/emailjs_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
+  
+  // Test de la configuration EmailJS au démarrage
+  EmailJSService.logConfiguration();
+  
   runApp(MyApp());
 }
 
@@ -78,6 +86,14 @@ class MyApp extends StatelessWidget {
             final client = settings.arguments as Client;
             return MaterialPageRoute(
               builder: (context) => AddMeasurementScreen(client: client),
+            );
+          } else if (settings.name == '/verifyEmail') {
+            final args = settings.arguments as Map<String, dynamic>;
+            return MaterialPageRoute(
+              builder: (context) => VerifyEmailScreen(
+                email: args['email'],
+                password: args['password'],
+              ),
             );
           }
           return null;

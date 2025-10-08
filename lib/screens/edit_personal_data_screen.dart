@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../services/data_service.dart';
 
 class EditPersonalDataScreen extends StatefulWidget {
+  const EditPersonalDataScreen({Key? key}) : super(key: key);
+
   @override
   _EditPersonalDataScreenState createState() => _EditPersonalDataScreenState();
 }
@@ -12,7 +14,6 @@ class _EditPersonalDataScreenState extends State<EditPersonalDataScreen> {
   final _nomController = TextEditingController();
   final _prenomController = TextEditingController();
   final _telephoneController = TextEditingController();
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -32,41 +33,76 @@ class _EditPersonalDataScreenState extends State<EditPersonalDataScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final dataService = Provider.of<DataService>(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Modifier les données personnelles'),
+        title: Text('Modifier mes informations'),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
       ),
       body: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
-              _buildTextField(
+              TextFormField(
                 controller: _nomController,
-                label: 'Nom',
-                hint: 'Entrez votre nom',
-                icon: Icons.person,
+                decoration: InputDecoration(
+                  labelText: 'Nom',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer votre nom';
+                  }
+                  return null;
+                },
               ),
               SizedBox(height: 16),
-              _buildTextField(
+              TextFormField(
                 controller: _prenomController,
-                label: 'Prénom',
-                hint: 'Entrez votre prénom',
-                icon: Icons.person_outline,
+                decoration: InputDecoration(
+                  labelText: 'Prénom',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer votre prénom';
+                  }
+                  return null;
+                },
               ),
               SizedBox(height: 16),
-              _buildTextField(
+              TextFormField(
                 controller: _telephoneController,
-                label: 'Téléphone',
-                hint: 'Entrez votre numéro de téléphone',
-                icon: Icons.phone,
+                decoration: InputDecoration(
+                  labelText: 'Téléphone',
+                  border: OutlineInputBorder(),
+                ),
                 keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer votre numéro de téléphone';
+                  }
+                  return null;
+                },
               ),
-              Spacer(),
-              _buildActionButtons(),
+              SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    _updatePersonalData(dataService);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  minimumSize: Size(double.infinity, 50),
+                ),
+                child: Text('Enregistrer les modifications'),
+              ),
             ],
           ),
         ),
@@ -74,123 +110,30 @@ class _EditPersonalDataScreenState extends State<EditPersonalDataScreen> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+  void _updatePersonalData(DataService dataService) {
+    final currentUser = dataService.currentUser;
+    if (currentUser != null) {
+      final updatedUser = User(
+        id: currentUser.id,
+        email: currentUser.email,
+        password: currentUser.password,
+        nom: _nomController.text,
+        prenom: _prenomController.text,
+        telephone: _telephoneController.text,
+        dateCreation: currentUser.dateCreation,
+        isVerified: currentUser.isVerified,
+      );
+
+      dataService.updateUser(updatedUser);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Informations mises à jour avec succès'),
+          backgroundColor: Colors.green,
         ),
-        SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            hintText: hint,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            prefixIcon: Icon(icon),
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Ce champ est obligatoire';
-            }
-            return null;
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () => Navigator.pop(context),
-            style: OutlinedButton.styleFrom(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text('Annuler'),
-          ),
-        ),
-        SizedBox(width: 16),
-        Expanded(
-          child: ElevatedButton(
-            onPressed: _isLoading ? null : _updatePersonalData,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              padding: EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: _isLoading
-                ? SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Text('Enregistrer'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _updatePersonalData() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-
-      final dataService = Provider.of<DataService>(context, listen: false);
-      final currentUser = dataService.currentUser;
-
-      if (currentUser != null) {
-        final updatedUser = User(
-          id: currentUser.id,
-          email: currentUser.email,
-          password: currentUser.password,
-          nom: _nomController.text.trim(),
-          prenom: _prenomController.text.trim(),
-          telephone: _telephoneController.text.trim(),
-          dateCreation: currentUser.dateCreation,
-        );
-
-        // Mettre à jour l'utilisateur dans DataService
-        dataService.updateUser(updatedUser);
-
-        setState(() {
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Données personnelles mises à jour avec succès'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        Navigator.pop(context);
-      }
+      );
+      
+      Navigator.pop(context);
     }
   }
 

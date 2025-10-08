@@ -6,6 +6,7 @@ import '../models/measurement.dart';
 import '../models/garment_type.dart';
 import '../models/custom_measurement.dart';
 import 'image_service.dart';
+import 'emailjs_service.dart';
 
 class User {
   String id;
@@ -15,6 +16,9 @@ class User {
   String prenom;
   String telephone;
   DateTime dateCreation;
+  bool isVerified;
+  String? verificationCode;
+  DateTime? verificationCodeExpiry;
 
   User({
     required this.id,
@@ -24,6 +28,9 @@ class User {
     required this.prenom,
     required this.telephone,
     required this.dateCreation,
+    this.isVerified = false,
+    this.verificationCode,
+    this.verificationCodeExpiry,
   });
 
   Map<String, dynamic> toJson() {
@@ -35,6 +42,9 @@ class User {
       'prenom': prenom,
       'telephone': telephone,
       'dateCreation': dateCreation.toIso8601String(),
+      'isVerified': isVerified,
+      'verificationCode': verificationCode,
+      'verificationCodeExpiry': verificationCodeExpiry?.toIso8601String(),
     };
   }
 
@@ -47,6 +57,11 @@ class User {
       prenom: json['prenom'],
       telephone: json['telephone'],
       dateCreation: DateTime.parse(json['dateCreation']),
+      isVerified: json['isVerified'] ?? false,
+      verificationCode: json['verificationCode'],
+      verificationCodeExpiry: json['verificationCodeExpiry'] != null 
+          ? DateTime.parse(json['verificationCodeExpiry']) 
+          : null,
     );
   }
 
@@ -80,6 +95,12 @@ class DataService with ChangeNotifier {
 
   String _generateUserSpecificId(String baseId) {
     return '${_currentUser?.id}_$baseId';
+  }
+
+  // Générer un code de vérification à 6 chiffres
+  String _generateVerificationCode() {
+    final random = DateTime.now().millisecondsSinceEpoch;
+    return (random % 900000 + 100000).toString(); // Code à 6 chiffres
   }
 
   Future<void> _loadData() async {
@@ -150,11 +171,27 @@ class DataService with ChangeNotifier {
     }
   }
 
-  // Gestion des utilisateurs
-  Future<bool> register(User user) async {
+  // Inscription avec envoi d'email de vérification
+  Future<Map<String, dynamic>> register(User user) async {
     // Vérifier si l'email existe déjà
     if (_users.any((u) => u.email == user.email)) {
-      return false;
+      return {'success': false, 'message': 'Un compte avec cet email existe déjà'};
+    }
+
+    // Générer le code de vérification
+    user.verificationCode = _generateVerificationCode();
+    user.verificationCodeExpiry = DateTime.now().add(Duration(hours: 12));
+    user.isVerified = false;
+
+    // Envoyer l'email de vérification via EmailJS
+    final emailResult = await EmailJSService.sendVerificationEmail(
+      toEmail: user.email,
+      verificationCode: user.verificationCode!,
+      userName: user.fullName,
+    );
+
+    if (!emailResult.success) {
+      return {'success': false, 'message': emailResult.message};
     }
 
     _users.add(user);
@@ -164,7 +201,66 @@ class DataService with ChangeNotifier {
     
     await _saveData();
     notifyListeners();
-    return true;
+    
+    return {'success': true, 'message': 'Email de vérification envoyé avec succès'};
+  }
+
+  // Vérifier le code de vérification
+  Future<Map<String, dynamic>> verifyEmail(String email, String code) async {
+    try {
+      final user = _users.firstWhere((u) => u.email == email);
+      
+      // Vérifier si le code correspond et n'est pas expiré
+      if (user.verificationCode == code && 
+          user.verificationCodeExpiry != null &&
+          user.verificationCodeExpiry!.isAfter(DateTime.now())) {
+        
+        user.isVerified = true;
+        user.verificationCode = null;
+        user.verificationCodeExpiry = null;
+        
+        await _saveData();
+        notifyListeners();
+
+        // Pas d'email de bienvenue pour l'instant (limite de templates)
+        print('✅ Compte vérifié - Email de bienvenue désactivé');
+
+        return {'success': true, 'message': 'Email vérifié avec succès'};
+      } else {
+        return {'success': false, 'message': 'Code invalide ou expiré'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Utilisateur non trouvé'};
+    }
+  }
+
+  // Renvoyer le code de vérification
+  Future<Map<String, dynamic>> resendVerificationCode(String email) async {
+    try {
+      final user = _users.firstWhere((u) => u.email == email);
+      
+      // Générer un nouveau code
+      user.verificationCode = _generateVerificationCode();
+      user.verificationCodeExpiry = DateTime.now().add(Duration(hours: 12));
+      
+      await _saveData();
+      notifyListeners();
+
+      // Renvoyer l'email
+      final emailResult = await EmailJSService.sendVerificationEmail(
+        toEmail: user.email,
+        verificationCode: user.verificationCode!,
+        userName: user.fullName,
+      );
+
+      if (!emailResult.success) {
+        return {'success': false, 'message': emailResult.message};
+      }
+
+      return {'success': true, 'message': 'Nouveau code envoyé avec succès'};
+    } catch (e) {
+      return {'success': false, 'message': 'Utilisateur non trouvé'};
+    }
   }
 
   void _createDefaultDataForUser(User user) {
@@ -213,19 +309,24 @@ class DataService with ChangeNotifier {
     ]);
   }
 
-  Future<bool> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final user = _users.firstWhere(
         (u) => u.email == email && u.password == password,
       );
 
+      // Vérifier si l'email est confirmé
+      if (!user.isVerified) {
+        return {'success': false, 'message': 'EMAIL_NOT_VERIFIED'};
+      }
+
       _currentUser = user;
       _isLoggedIn = true;
       await _saveData();
       notifyListeners();
-      return true;
+      return {'success': true, 'message': 'Connexion réussie'};
     } catch (e) {
-      return false;
+      return {'success': false, 'message': 'Email ou mot de passe incorrect'};
     }
   }
 
@@ -236,19 +337,85 @@ class DataService with ChangeNotifier {
     notifyListeners();
   }
 
-  // Mettre à jour les informations utilisateur
+  // Mettre à jour les informations personnelles de l'utilisateur
   void updateUser(User updatedUser) {
     final index = _users.indexWhere((user) => user.id == updatedUser.id);
     if (index != -1) {
       _users[index] = updatedUser;
       
-      // Si c'est l'utilisateur courant, mettre à jour aussi
+      // Mettre à jour l'utilisateur courant si c'est le même
       if (_currentUser?.id == updatedUser.id) {
         _currentUser = updatedUser;
       }
       
       _saveData();
       notifyListeners();
+    }
+  }
+
+  // Mettre à jour l'email de l'utilisateur
+  Future<Map<String, dynamic>> updateUserEmail(String newEmail) async {
+    try {
+      // Vérifier si le nouvel email existe déjà
+      if (_users.any((u) => u.email == newEmail)) {
+        return {'success': false, 'message': 'Un compte avec cet email existe déjà'};
+      }
+
+      if (_currentUser != null) {
+        final oldEmail = _currentUser!.email;
+        _currentUser!.email = newEmail;
+        _currentUser!.isVerified = false; // L'email doit être reverifié
+        
+        // Générer un nouveau code de vérification
+        _currentUser!.verificationCode = _generateVerificationCode();
+        _currentUser!.verificationCodeExpiry = DateTime.now().add(Duration(hours: 12));
+        
+        await _saveData();
+        notifyListeners();
+
+        // Envoyer l'email de vérification
+        final emailResult = await EmailJSService.sendVerificationEmail(
+          toEmail: newEmail,
+          verificationCode: _currentUser!.verificationCode!,
+          userName: _currentUser!.fullName,
+        );
+
+        if (!emailResult.success) {
+          // Revenir à l'ancien email en cas d'erreur
+          _currentUser!.email = oldEmail;
+          _currentUser!.isVerified = true;
+          await _saveData();
+          return {'success': false, 'message': emailResult.message};
+        }
+
+        return {'success': true, 'message': 'Email mis à jour. Un code de vérification a été envoyé à votre nouvelle adresse.'};
+      }
+      
+      return {'success': false, 'message': 'Utilisateur non connecté'};
+    } catch (e) {
+      return {'success': false, 'message': 'Erreur lors de la mise à jour de l\'email'};
+    }
+  }
+
+  // Changer le mot de passe de l'utilisateur
+  Future<Map<String, dynamic>> changePassword(String currentPassword, String newPassword) async {
+    try {
+      if (_currentUser != null) {
+        // Vérifier le mot de passe actuel
+        if (_currentUser!.password != currentPassword) {
+          return {'success': false, 'message': 'Mot de passe actuel incorrect'};
+        }
+        
+        _currentUser!.password = newPassword;
+        await _saveData();
+        notifyListeners();
+        
+        return {'success': true, 'message': 'Mot de passe mis à jour avec succès'};
+      }
+      
+      return {'success': false, 'message': 'Utilisateur non connecté'};
+    } catch (e) {
+      return {'success': false, 'message': 'Erreur lors du changement de mot de passe'};
     }
   }
 

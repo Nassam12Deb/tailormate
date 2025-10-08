@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/data_service.dart';
 import 'welcome_screen.dart';
+import 'verify_email_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -368,40 +369,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
         dateCreation: DateTime.now(),
       );
 
-      final success = await dataService.register(newUser);
+      final result = await dataService.register(newUser);
 
       setState(() {
         _isLoading = false;
       });
 
-      if (success) {
-        // Connecter automatiquement l'utilisateur après l'inscription
-        final loginSuccess = await dataService.login(
-          _emailController.text.trim(),
-          _passwordController.text,
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']),
+            backgroundColor: Colors.green,
+          ),
         );
-
-        if (loginSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Compte créé avec succès !'),
-              backgroundColor: Colors.green,
+        
+        // Rediriger vers l'écran de vérification d'email
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VerifyEmailScreen(
+              email: _emailController.text.trim(),
+              password: _passwordController.text,
             ),
-          );
-          Navigator.pushReplacementNamed(context, '/dashboard');
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erreur lors de la connexion automatique'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          Navigator.pushReplacementNamed(context, '/welcome');
-        }
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Un compte avec cet email existe déjà'),
+            content: Text(result['message']),
             backgroundColor: Colors.red,
           ),
         );

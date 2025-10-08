@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/data_service.dart';
 import 'register_screen.dart';
 import 'welcome_screen.dart';
+import 'verify_email_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -259,21 +260,48 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       final dataService = Provider.of<DataService>(context, listen: false);
-      final success = await dataService.login(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
+      
+      try {
+        final result = await dataService.login(
+          _emailController.text.trim(),
+          _passwordController.text,
+        );
 
-      setState(() {
-        _isLoading = false;
-      });
+        setState(() {
+          _isLoading = false;
+        });
 
-      if (success) {
-        Navigator.pushReplacementNamed(context, '/dashboard');
-      } else {
+        if (result['success'] == true) {
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        } else {
+          if (result['message'] == 'EMAIL_NOT_VERIFIED') {
+            // Rediriger vers l'écran de vérification
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VerifyEmailScreen(
+                  email: _emailController.text.trim(),
+                  password: _passwordController.text,
+                ),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(result['message']),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Email ou mot de passe incorrect'),
+            content: Text('Erreur lors de la connexion'),
             backgroundColor: Colors.red,
           ),
         );
