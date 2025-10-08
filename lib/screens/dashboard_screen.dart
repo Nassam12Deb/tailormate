@@ -125,46 +125,6 @@ class DashboardScreen extends StatelessWidget {
             ),
             SizedBox(height: 16),
 
-            // Section sauvegarde
-            Card(
-              child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Sauvegarde',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {},
-                            icon: Icon(Icons.cloud_upload),
-                            label: Text('Sauvegarder'),
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {},
-                            icon: Icon(Icons.cloud_download),
-                            label: Text('Restaurer'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(height: 16),
-
             // Répartition des modèles
             Card(
               child: Padding(

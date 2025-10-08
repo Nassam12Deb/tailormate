@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/data_service.dart';
+import '../services/cloud_service.dart';
 import 'edit_personal_data_screen.dart';
 import 'update_email_screen.dart';
 import 'change_password_screen.dart';
+import '../services/cloud_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   @override
@@ -111,6 +113,14 @@ class ProfileScreen extends StatelessWidget {
                     );
                   },
                 ),
+                // Nouvelle section Sauvegarde Cloud
+                _ProfileSection(
+                  title: 'Sauvegarde Cloud',
+                  actionText: 'Gérer →',
+                  onTap: () {
+                    _showCloudBackupDialog(context);
+                  },
+                ),
                 _ProfileSection(
                   title: 'À propos',
                   actionText: 'Information sur l\'application →',
@@ -144,6 +154,310 @@ class ProfileScreen extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+
+  void _showCloudBackupDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Sauvegarde Cloud'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Protégez vos données avec la sauvegarde cloud',
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(height: 16),
+            Text(
+              '• Sauvegarde automatique',
+              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+            ),
+            Text(
+              '• Restauration facile',
+              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+            ),
+            Text(
+              '• Sécurisé et chiffré',
+              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showCloudBackupOptions(context);
+            },
+            child: Text('Continuer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCloudBackupOptions(BuildContext context) {
+    final cloudService = CloudService();
+    final dataService = Provider.of<DataService>(context, listen: false);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text('Sauvegarde Cloud'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: Icon(Icons.cloud_upload, color: Colors.blue),
+                  title: Text('Sauvegarder sur le cloud'),
+                  subtitle: Text('Télécharge vos données vers le cloud'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    _showBackupProgress(context, true);
+                    
+                    final success = await cloudService.backupToCloud(dataService);
+                    
+                    Navigator.pop(context); // Fermer la dialog de progression
+                    
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Sauvegarde cloud réussie !'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Échec de la sauvegarde cloud'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                Divider(),
+                ListTile(
+                  leading: Icon(Icons.cloud_download, color: Colors.green),
+                  title: Text('Restaurer depuis le cloud'),
+                  subtitle: Text('Télécharge vos données du cloud'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    _showBackupProgress(context, false);
+                    
+                    final success = await cloudService.restoreFromCloud(dataService);
+                    
+                    Navigator.pop(context); // Fermer la dialog de progression
+                    
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Restauration cloud réussie !'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Échec de la restauration cloud'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                Divider(),
+                ListTile(
+                  leading: Icon(Icons.history, color: Colors.orange),
+                  title: Text('Historique des sauvegardes'),
+                  subtitle: Text('Voir vos sauvegardes précédentes'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showBackupHistory(context);
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Fermer'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showBackupProgress(BuildContext context, bool isBackup) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(isBackup ? 'Sauvegarde en cours' : 'Restauration en cours'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(isBackup 
+              ? 'Téléchargement de vos données vers le cloud...'
+              : 'Téléchargement de vos données depuis le cloud...'
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBackupHistory(BuildContext context) {
+    final cloudService = CloudService();
+    
+    showDialog(
+      context: context,
+      builder: (context) => FutureBuilder<List<BackupItem>>(
+        future: cloudService.getBackupHistory(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return AlertDialog(
+              title: Text('Historique des sauvegardes'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Chargement...'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Fermer'),
+                ),
+              ],
+            );
+          }
+          
+          if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+            return AlertDialog(
+              title: Text('Historique des sauvegardes'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.history_toggle_off, size: 48, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text('Aucune sauvegarde trouvée'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Fermer'),
+                ),
+              ],
+            );
+          }
+          
+          final backups = snapshot.data!;
+          
+          return AlertDialog(
+            title: Text('Historique des sauvegardes'),
+            content: Container(
+              width: double.maxFinite,
+              height: 300,
+              child: ListView.builder(
+                itemCount: backups.length,
+                itemBuilder: (context, index) {
+                  final backup = backups[index];
+                  return ListTile(
+                    leading: Icon(Icons.backup, color: Colors.blue),
+                    title: Text('Sauvegarde du ${_formatDateTime(backup.date)}'),
+                    subtitle: Text('${backup.dataCount} éléments'),
+                    trailing: Text('${backup.size}'),
+                    onTap: () {
+                      // Option pour restaurer cette sauvegarde spécifique
+                      _showRestoreConfirmation(context, backup);
+                    },
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Fermer'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showRestoreConfirmation(BuildContext context, BackupItem backup) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Restaurer la sauvegarde'),
+        content: Text(
+          'Voulez-vous restaurer la sauvegarde du ${_formatDateTime(backup.date)} ?\n\n'
+          'Cette action écrasera vos données actuelles.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Fermer cette dialog
+              Navigator.pop(context); // Fermer l'historique
+              _performSpecificRestore(context, backup);
+            },
+            child: Text('Restaurer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _performSpecificRestore(BuildContext context, BackupItem backup) async {
+    final cloudService = CloudService();
+    final dataService = Provider.of<DataService>(context, listen: false);
+    
+    _showBackupProgress(context, false);
+    
+    final success = await cloudService.restoreSpecificBackup(dataService, backup.id);
+    
+    Navigator.pop(context); // Fermer la dialog de progression
+    
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sauvegarde restaurée avec succès !'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Échec de la restauration'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  String _formatDateTime(DateTime date) {
+    return '${date.day}/${date.month}/${date.year} à ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   void _showAboutDialog(BuildContext context) {
